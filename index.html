@@ -4,39 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connecting...</title>
+    <link rel="dns-prefetch" href="//script.google.com">
+    <link rel="preconnect" href="https://script.google.com" crossorigin>
+    <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+    
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #ffffff; }
-        .card { text-align: center; }
-        .loader { width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #25D366; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loader { width: 30px; height: 30px; border: 2px solid #f3f3f3; border-top: 2px solid #25D366; border-radius: 50%; animation: s 0.6s linear infinite; }
+        @keyframes s { to { transform: rotate(360deg); } }
     </style>
-</head>
-<body>
-    <div class="card">
-        <div class="loader"></div>
-        <h3 style="color:#075e54; margin:0; font-size:18px;">正在连接客服...</h3>
-    </div>
 
     <script>
-        // 你的 Google 部署链接
-        const apiUrl = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
-
-        // 加速逻辑：不等待页面加载，直接执行请求
+        // 2. 极限抢跑：在浏览器解析 Body 之前就开始发请求
         (function() {
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", apiUrl, true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    var res = xhr.responseText.trim();
-                    if (res === "full") {
-                        document.body.innerHTML = "<h3>今日咨询名额已满</h3>";
-                    } else if (res.length > 5) {
-                        window.location.replace("https://wa.me/" + res);
+            var url = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
+            
+            // 使用同步优先级最高的原生请求
+            var x = new XMLHttpRequest();
+            x.open("GET", url, true);
+            x.onreadystatechange = function() {
+                if (x.readyState === 4 && x.status === 200) {
+                    var p = x.responseText.trim();
+                    if (p === "full") {
+                        document.body.innerHTML = "<h4>名额已满</h4>";
+                    } else if (p.length > 5) {
+                        // 3. 强制跳转，不留历史记录
+                        window.location.replace("https://wa.me/" + p);
                     }
                 }
             };
-            xhr.send();
+            x.send();
         })();
     </script>
+</head>
+<body>
+    <div class="loader"></div>
 </body>
 </html>
