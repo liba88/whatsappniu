@@ -6,49 +6,56 @@
     <title>Connecting...</title>
     <link rel="preconnect" href="https://script.google.com">
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #ffffff; }
-        .card { text-align: center; }
-        /* 2. 动画效果：让用户感知到正在加载，不显枯燥 */
-        .loader { width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid #25D366; border-radius: 50%; animation: spin 0.6s linear infinite; margin: 0 auto 15px; }
+        body { 
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            background-color: #ffffff; 
+        }
+        .container { text-align: center; }
+        /* 极致精简的进度条 */
+        .loader { 
+            width: 28px; 
+            height: 28px; 
+            border: 3px solid #f3f3f3; 
+            border-top: 3px solid #25D366; 
+            border-radius: 50%; 
+            animation: spin 0.7s linear infinite; 
+            margin: 0 auto 12px; 
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
-        h3 { color: #075e54; font-size: 18px; font-weight: 500; margin: 0; }
+        h3 { color: #075e54; font-size: 16px; font-weight: 500; margin: 0; }
     </style>
 </head>
 <body>
-    <div class="card">
+    <div class="container">
         <div class="loader"></div>
-        <h3>正在为您连接客服...</h3>
+        <h3>Connecting to support...</h3>
     </div>
 
     <script>
-        // 你的 Google 部署链接
-        const apiUrl = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
+        (function() {
+            // 你的 Google 脚本 API 链接
+            var api = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
 
-        // 3. 使用 fetch 模式，这是目前最快且兼容性最好的跳转方式
-        async function loadAndRedirect() {
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-                const phone = await response.text();
-
-                if (phone === "full") {
-                    document.querySelector('h3').innerText = "今日咨询名额已满";
-                    document.querySelector('.loader').style.display = 'none';
-                } else if (phone && phone.length > 5) {
-                    // 4. 拿到号码，瞬间跳转
-                    window.location.replace("https://wa.me/" + phone.trim());
+            var x = new XMLHttpRequest();
+            x.open("GET", api, true);
+            x.onreadystatechange = function() {
+                if (x.readyState === 4 && x.status === 200) {
+                    var p = x.responseText.trim();
+                    if (p === "full") {
+                        document.querySelector('h3').innerText = "Service currently full";
+                    } else if (p.length > 5) {
+                        // 瞬间跳转到 WhatsApp
+                        window.location.replace("https://wa.me/" + p);
+                    }
                 }
-            } catch (error) {
-                console.error("Redirect Error:", error);
-                // 如果出错，3秒后重试
-                setTimeout(() => { window.location.reload(); }, 3000);
-            }
-        }
-
-        // 立即启动
-        loadAndRedirect();
+            };
+            x.send();
+        })();
     </script>
 </body>
 </html>
