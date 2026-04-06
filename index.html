@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connecting...</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #ffffff; }
+        .card { text-align: center; padding: 20px; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #25D366; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h3 { color: #128C7E; margin: 0; font-size: 18px; }
+        p { color: #666; font-size: 14px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="spinner"></div>
+        <h3>正在为您分配客服线路...</h3>
+        <p>请稍候，即将为您开启 WhatsApp 对话</p>
+    </div>
+
+    <script>
+        /**
+         * 【重要】请将下面的引号内容替换为你 Google Apps Script 部署生成的那个长链接
+         */
+        const apiUrl = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
+
+        async function doRedirect() {
+            try {
+                // 1. 获取号码 (后台静默执行)
+                const res = await fetch(apiUrl);
+                const phone = await res.text();
+                
+                // 2. 执行跳转
+                if (phone === "full") {
+                    document.body.innerHTML = "<div class='card'><h3>今日咨询名额已满</h3><p>请明天再试或联系管理员。</p></div>";
+                } else if (phone && phone.length > 5) {
+                    // GitHub 环境下直接重定向，没有任何 Google 蓝条提示
+                    window.location.replace("https://wa.me/" + phone);
+                }
+            } catch (e) {
+                console.error("Connection failed", e);
+                // 如果出错，可以设置一个备用号直接跳转
+            }
+        }
+        
+        // 页面加载完成后立即启动逻辑
+        window.onload = doRedirect;
+    </script>
+</body>
+</html>
