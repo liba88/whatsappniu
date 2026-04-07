@@ -1,31 +1,93 @@
-function fetchPool(isFirst) {
-        var xhr = new XMLHttpRequest();
-        // 设置 2.5 秒超时限制
-        xhr.timeout = 2500; 
-        xhr.open("GET", API_URL + "?mode=get_all", true);
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connecting...</title>
+    <style>
+        html, body { margin: 0; padding: 0; background: #ffffff; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, sans-serif; overflow: hidden; }
+        #ui { text-align: center; }
+        .loader { width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #25D366; border-radius: 50%; animation: s 0.6s linear infinite; margin: 0 auto 12px; }
+        @keyframes s { to { transform: rotate(360deg); } }
+        iframe { border: none; width: 100vw; height: 100vh; display: none; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div class="loader"></div>
+        <p style="color: #666; font-size: 14px;">Connecting to support...</p>
+    </div>
+    <iframe id="adminFrame"></iframe>
+
+    <script>
+    (function() {
+        // --- 1. 你的最新 API URL ---
+        const API_URL = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
         
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    const nums = JSON.parse(xhr.responseText);
-                    if (nums.length > 0) {
-                        localStorage.setItem('wa_pool_v4', JSON.stringify(nums));
-                        if (isFirst) {
-                            window.location.replace("https://wa.me/" + nums[0]);
-                            new Image().src = `${API_URL}?mode=log&phone=${nums[0]}&uid=${uid}`;
+        // --- 2. 访客 ID 指纹 ---
+        let uid = localStorage.getItem('wa_uid');
+        if (!uid) {
+            uid = 'u' + Date.now() + Math.random().toString(36).substr(2, 5);
+            localStorage.setItem('wa_uid', uid);
+        }
+
+        // --- 3. 管理员看板分流 ---
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('view') === 'admin') {
+            document.getElementById('ui').style.display = 'none';
+            var frame = document.getElementById('adminFrame');
+            frame.src = API_URL + "?view=admin";
+            frame.style.display = "block";
+            return;
+        }
+
+        // --- 4. 跳转与取号逻辑 (含 2.5秒极速兜底) ---
+        let pool = [];
+        try { pool = JSON.parse(localStorage.getItem('wa_pool_v4') || "[]"); } catch(e) {}
+
+        if (pool.length > 0) {
+            // 有缓存，直接秒跳
+            let idx = parseInt(localStorage.getItem('wa_idx') || "0") % pool.length;
+            const target = pool[idx];
+            localStorage.setItem('wa_idx', idx + 1);
+            window.location.replace("https://wa.me/" + target);
+            new Image().src = `${API_URL}?mode=log&phone=${target}&uid=${uid}`;
+            fetchPool(); // 偷偷更新缓存
+        } else {
+            // 无缓存，显示 UI 并抓取
+            document.getElementById('ui').style.display = 'block';
+            fetchPool(true);
+        }
+
+        function fetchPool(isFirst) {
+            var xhr = new XMLHttpRequest();
+            xhr.timeout = 2500; // 2.5秒超时
+            xhr.open("GET", API_URL + "?mode=get_all", true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        const nums = JSON.parse(xhr.responseText);
+                        if (nums.length > 0) {
+                            localStorage.setItem('wa_pool_v4', JSON.stringify(nums));
+                            if (isFirst) {
+                                window.location.replace("https://wa.me/" + nums[0]);
+                                new Image().src = `${API_URL}?mode=log&phone=${nums[0]}&uid=${uid}`;
+                            }
                         }
-                    }
-                } catch(e) {}
-            }
-        };
+                    } catch(e) {}
+                }
+            };
 
-        // 【新增：极速兜底】如果网络太慢，2.5秒直接跳保底号，不让客户等！
-        xhr.ontimeout = function() {
-            if (isFirst) {
-                // 请把下面的号码改成你最稳的那个号
-                window.location.replace("https://wa.me/8613800000001");
-            }
-        };
-
-        xhr.send();
-    }
+            xhr.ontimeout = function() {
+                if (isFirst) {
+                    // 超时兜底：直接跳第一个主号，不让客户等
+                    window.location.replace("https://wa.me/8613800000001");
+                }
+            };
+            xhr.send();
+        }
+    })();
+    </script>
+</body>
+</html>
