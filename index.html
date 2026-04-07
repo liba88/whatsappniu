@@ -8,27 +8,24 @@
         html, body { margin: 0; padding: 0; background: #ffffff; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
         .loader { width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #25D366; border-radius: 50%; animation: s 0.6s linear infinite; }
         @keyframes s { to { transform: rotate(360deg); } }
+        iframe { border: none; width: 100vw; height: 100vh; display: none; }
     </style>
 </head>
 <body>
     <div id="ui"><div class="loader"></div></div>
-    <iframe id="adminFrame" style="display:none; width:100vw; height:100vh; border:none;"></iframe>
+    <iframe id="adminFrame"></iframe>
 
     <script>
     (function() {
-        // --- 配置区 ---
         const API_URL = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
         
-        // 【本地号码池】直接写在这里，实现 1.2秒首跳的关键！
-        const NUM_POOL = [
-            "8613800000001",
-            "8613800000002",
-            "8613800000004"
-        ];
+        // 【核心：本地兜底池】
+        // 当手机第一次访问或网络极差时，直接从这里选号，保住 1.2 秒首跳速度
+        const BACKUP_POOL = ["8613800000001", "8613800000002", "8613800000003", "8613800000004"];
 
         const urlParams = new URLSearchParams(window.location.search);
         
-        // 看板后台逻辑
+        // 1. 看板后台逻辑
         if (urlParams.get('view') === 'admin') {
             document.getElementById('ui').style.display = 'none';
             var frame = document.getElementById('adminFrame');
@@ -37,16 +34,35 @@
             return;
         }
 
-        // --- 随机轮询分流逻辑 ---
-        // 随机选一个号
-        const target = NUM_POOL[Math.floor(Math.random() * NUM_POOL.length)];
-        
-        // 1. 立即跳转 (极致速度)
+        // 2. 获取当前的可用号码池（优先用上次同步成功的，没有就用兜底的）
+        let activePool = JSON.parse(localStorage.getItem('wa_active_pool') || "[]");
+        if (activePool.length === 0) {
+            activePool = BACKUP_POOL;
+        }
+
+        // 3. 随机选号并【立即跳转】
+        const target = activePool[Math.floor(Math.random() * activePool.length)];
         window.location.replace("https://wa.me/" + target);
 
-        // 2. 异步上报 (不管成功与否，不影响跳转)
-        // 增加识别指纹防止 Google 缓存
+        // 4. 【异步静默操作】（跳转后在后台运行，不影响客户速度）
+        // A. 记录点击数据
         new Image().src = `${API_URL}?mode=log&phone=${target}&t=${Date.now()}`;
+
+        // B. 同步最新的号码开关状态（存入本地供下次使用）
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", API_URL + "?mode=get_all", true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    const latestNums = JSON.parse(xhr.responseText);
+                    if (latestNums.length > 0) {
+                        // 把 Google 表格里真正“开启”的号存下来
+                        localStorage.setItem('wa_active_pool', JSON.stringify(latestNums));
+                    }
+                } catch(e) {}
+            }
+        };
+        xhr.send();
 
     })();
     </script>
