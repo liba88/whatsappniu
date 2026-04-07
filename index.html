@@ -8,18 +8,17 @@
         html, body { margin: 0; padding: 0; background: #ffffff; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
         .loader { width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #25D366; border-radius: 50%; animation: s 0.6s linear infinite; }
         @keyframes s { to { transform: rotate(360deg); } }
-        iframe { border: none; width: 100vw; height: 100vh; display: none; }
     </style>
 </head>
 <body>
     <div id="ui"><div class="loader"></div></div>
-    <iframe id="adminFrame"></iframe>
+    <iframe id="adminFrame" style="display:none; width:100vw; height:100vh; border:none;"></iframe>
 
     <script>
     (function() {
         const API_URL = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
         
-        // 【本地静态池】确保第一次访问的绝对速度
+        // 【核心：本地极速池】包含你所有的号码，确保新设备 1.2 秒首跳
         const STATIC_POOL = ["8613800000001", "8613800000002", "8613800000003", "8613800000004"];
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -33,42 +32,29 @@
             return;
         }
 
-        // 2. 智能选号逻辑
-        // 优先获取“未满额”的号码池，如果没有，就用全量静态池
-        let availablePool = JSON.parse(localStorage.getItem('wa_available_pool') || "[]");
-        if (availablePool.length === 0) {
-            availablePool = STATIC_POOL;
-        }
+        // 2. 选号：优先用手机存的“未满名单”，没有就用“极速池”
+        let availablePool = JSON.parse(localStorage.getItem('wa_pool_v5') || "[]");
+        if (availablePool.length === 0) availablePool = STATIC_POOL;
 
-        // 随机选一个号
         const target = availablePool[Math.floor(Math.random() * availablePool.length)];
         
-        // 3. 【立即跳转】
+        // 3. 【立即跳转】核心：这一行放在最前面，保证速度
         window.location.replace("https://wa.me/" + target);
 
-        // 4. 【异步静默同步】更新下一次的号码池状态
-        // A. 记录本次点击
+        // 4. 【后台静默同步】不影响跳转速度
         new Image().src = `${API_URL}?mode=log&phone=${target}&t=${Date.now()}`;
 
-        // B. 获取表格最新状态（避开已满额的号）
         var xhr = new XMLHttpRequest();
         xhr.open("GET", API_URL + "?mode=get_all", true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 try {
-                    const latestNums = JSON.parse(xhr.responseText);
-                    if (latestNums && latestNums.length > 0) {
-                        // 这里的 latestNums 必须是 Google 脚本中过滤掉“状态关闭”和“已满额”后的号码
-                        localStorage.setItem('wa_available_pool', JSON.stringify(latestNums));
-                    } else {
-                        // 如果全部都满了，下次就随机乱跳（兜底）
-                        localStorage.setItem('wa_available_pool', JSON.stringify(STATIC_POOL));
-                    }
+                    const latest = JSON.parse(xhr.responseText);
+                    if (latest.length > 0) localStorage.setItem('wa_pool_v5', JSON.stringify(latest));
                 } catch(e) {}
             }
         };
         xhr.send();
-
     })();
     </script>
 </body>
