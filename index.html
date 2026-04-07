@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connecting...</title>
     <style>
-        /* 纯白背景，极致精简 */
-        html, body { margin: 0; padding: 0; background: #ffffff; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, sans-serif; }
+        /* 极致简约样式 */
+        html, body { margin: 0; padding: 0; background: #ffffff; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, sans-serif; overflow: hidden; }
         #ui { display: none; text-align: center; }
         .loader { width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #25D366; border-radius: 50%; animation: s 0.6s linear infinite; margin: 0 auto 12px; }
         @keyframes s { to { transform: rotate(360deg); } }
+        /* 看板专用：全屏铺满 */
+        iframe { border: none; width: 100vw; height: 100vh; display: none; }
     </style>
 </head>
 <body>
@@ -18,65 +20,67 @@
         <p style="color: #666; font-size: 14px;">Connecting to support...</p>
     </div>
 
+    <iframe id="adminFrame"></iframe>
+
     <script>
     (function() {
-        // --- 你的最新 Web 应用 URL ---
+        // --- 1. 你的 Google 脚本链接 ---
         const API_URL = "https://script.google.com/macros/s/AKfycbxaPzWyfb2Umi0rK75ybMS889KiH1kgrvneMlFFd6njh2qKR_xEjpDHViRFX3IRiiY/exec";
         
+        // --- 2. 核心分流：判断是管理员看后台，还是客户要跳转 ---
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('view') === 'admin') {
+            // 如果是管理员访问 ?view=admin
+            var frame = document.getElementById('adminFrame');
+            frame.src = API_URL + "?view=admin";
+            frame.style.display = "block";
+            return; // 停止执行后面的跳转逻辑
+        }
+
+        // --- 3. 客户跳转逻辑（秒开版） ---
         const KEY_POOL = "wa_pool_final";
         const KEY_IDX = "wa_idx_final";
 
-        // 读取本地缓存的号码池
         let pool = [];
-        try { 
-            pool = JSON.parse(localStorage.getItem(KEY_POOL) || "[]"); 
-        } catch(e) { pool = []; }
+        try { pool = JSON.parse(localStorage.getItem(KEY_POOL) || "[]"); } catch(e) {}
 
-        // --- 逻辑判断 ---
         if (pool.length > 0) {
-            // 1. 如果有缓存，立即计算要跳哪个号
+            // 缓存命中：秒跳
             let idx = parseInt(localStorage.getItem(KEY_IDX) || "0");
             if (idx >= pool.length) idx = 0;
             const target = pool[idx];
             localStorage.setItem(KEY_IDX, idx + 1);
             
-            // 2. 【核心】瞬间跳转（不等待网络，直接切走）
+            // 瞬间切走
             window.location.replace("https://wa.me/" + target);
             
-            // 3. 【后台静默上报】利用图片请求原理，给表格数字 +1
-            var logger = new Image();
-            logger.src = API_URL + "?mode=log&phone=" + target;
-            
-            // 4. 【异步更新】偷偷去表格拿一下最新的号码名单，为下次点击做准备
-            fetchLatestPool();
+            // 后台静默报数 + 异步更新池
+            new Image().src = API_URL + "?mode=log&phone=" + target;
+            fetchPool();
         } else {
-            // 第一次访问（没缓存），显示加载动画并等待下载
+            // 第一次访问：拉取数据
             document.getElementById('ui').style.display = 'block';
-            fetchLatestPool(true);
+            fetchPool(true);
         }
 
-        // 从 Google 脚本获取最新号码名单的函数
-        function fetchLatestPool(isFirstTime) {
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", API_URL + "?mode=get_all", true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
+        function fetchPool(isFirst) {
+            var x = new XMLHttpRequest();
+            x.open("GET", API_URL + "?mode=get_all", true);
+            x.onreadystatechange = function() {
+                if (x.readyState === 4 && x.status === 200) {
                     try {
-                        const latestNums = JSON.parse(xhr.responseText);
-                        if (Array.isArray(latestNums) && latestNums.length > 0) {
-                            // 存入手机本地，下次就是秒开
-                            localStorage.setItem(KEY_POOL, JSON.stringify(latestNums));
-                            // 如果是第一次访问，拿到后立刻跳走
-                            if (isFirstTime) {
-                                window.location.replace("https://wa.me/" + latestNums[0]);
-                                // 同时也报一下数
-                                new Image().src = API_URL + "?mode=log&phone=" + latestNums[0];
+                        const nums = JSON.parse(x.responseText);
+                        if (nums.length > 0) {
+                            localStorage.setItem(KEY_POOL, JSON.stringify(nums));
+                            if (isFirst) {
+                                window.location.replace("https://wa.me/" + nums[0]);
+                                new Image().src = API_URL + "?mode=log&phone=" + nums[0];
                             }
                         }
-                    } catch(e) { console.error("Data error"); }
+                    } catch(e) {}
                 }
             };
-            xhr.send();
+            x.send();
         }
     })();
     </script>
